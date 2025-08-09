@@ -1,0 +1,146 @@
+---
+title: "Bellabeat Capstone Report"
+author: "Paola Velleda Betemps"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: cosmo
+    toc: true
+    toc_float: true
+    toc_depth: 2
+    df_print: paged
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, dpi = 150)
+
+library(tidyverse); library(lubridate); library(janitor); library(here); library(skimr); library(scales)
+Sys.setlocale("LC_TIME","C")
+# Build plots p1..p6 used below
+source(here::here("03_analysis","01_explore.R"))
+```
+
+## Introduction
+
+This report presents an analysis of Fitbit daily activity and sleep data to provide insights for Bellabeat’s smart wellness products.
+
+## Data & KPIs
+
+```{r}
+clean_path <- file.path(here::here("02_clean"), "bellabeat_daily_clean.csv")
+daily <- readr::read_csv(clean_path) |> janitor::clean_names()
+daily <- daily |> mutate(dow = lubridate::wday(date, label=TRUE, abbr=TRUE, week_start=1),
+                         sleep_hours = total_minutes_asleep/60)
+
+kpi <- daily |>
+  summarise(users = dplyr::n_distinct(id),
+            rows  = dplyr::n(),
+            steps_median = median(total_steps, na.rm=TRUE),
+            steps_mean   = mean(total_steps, na.rm=TRUE),
+            sleep_median_h = median(sleep_hours, na.rm=TRUE),
+            sleep_mean_h   = mean(sleep_hours, na.rm=TRUE),
+            corr_steps_sleep = cor(total_steps, total_minutes_asleep, use="complete.obs"))
+kpi
+```
+
+## Visual Insights
+
+### 1) Distribution of Daily Steps
+
+```{r, echo=TRUE}
+# Histogram of daily steps
+ggplot2::ggplot(daily, ggplot2::aes(total_steps)) +
+  ggplot2::geom_histogram(bins = 30) +
+  ggplot2::scale_x_continuous(labels = scales::comma) +
+  ggplot2::labs(
+    title = "Distribution of Daily Steps",
+    x = "Steps",
+    y = "Count"
+  )
+
+
+### 2) Sleep (hours) vs. Steps
+
+## P2 — Sleep (hours) vs. Steps
+
+# Scatter: sleep hours vs. steps, with linear fit
+ggplot2::ggplot(daily, ggplot2::aes(total_steps, total_minutes_asleep/60)) +
+  ggplot2::geom_point(alpha = 0.35) +
+  ggplot2::geom_smooth(method = "lm", se = FALSE) +
+  ggplot2::scale_x_continuous(labels = scales::comma) +
+  ggplot2::labs(
+    title = "Sleep (hours) vs. Steps",
+    x = "Steps",
+    y = "Hours Slept"
+  )
+
+
+# Build chart inline so the HTML shows the code
+daily %>%
+  dplyr::group_by(dow) %>%
+  dplyr::summarise(avg_steps = mean(total_steps, na.rm = TRUE)) %>%
+  ggplot2::ggplot(ggplot2::aes(dow, avg_steps)) +
+  ggplot2::geom_col() +
+  ggplot2::scale_y_continuous(labels = scales::comma) +
+  ggplot2::labs(
+    title = "Average Steps by Weekday",
+    x = "Weekday",
+    y = "Average Steps"
+  )
+
+
+
+### 4) Average Sleep by Weekday
+p4
+```
+
+### 5) Median Steps by ISO Week
+
+```{r fig-steps-week, echo=TRUE, message=FALSE, warning=FALSE}
+daily %>%
+  dplyr::mutate(iso_week = lubridate::isoweek(date)) %>%
+  dplyr::group_by(iso_week) %>%
+  dplyr::summarise(median_steps = median(total_steps, na.rm = TRUE)) %>%
+  ggplot2::ggplot(ggplot2::aes(x = iso_week, y = median_steps)) +
+  ggplot2::geom_line() +
+  ggplot2::geom_point() +
+  ggplot2::scale_y_continuous(labels = scales::comma) +
+  ggplot2::labs(
+    title = "Median Steps by ISO Week",
+    x = "ISO Week",
+    y = "Median Steps"
+  )
+```
+
+
+
+### 6) Top 10 Users by Average Steps
+
+```{r fig-top-users, echo=TRUE, message=FALSE, warning=FALSE}
+top_users <- daily %>%
+  dplyr::group_by(id) %>%
+  dplyr::summarise(avg_steps = mean(total_steps, na.rm = TRUE), days = dplyr::n()) %>%
+  dplyr::arrange(dplyr::desc(avg_steps)) %>%
+  dplyr::slice_head(n = 10)
+
+ggplot2::ggplot(top_users,
+                ggplot2::aes(x = forcats::fct_reorder(as.character(id), avg_steps),
+                             y = avg_steps)) +
+  ggplot2::geom_col() +
+  ggplot2::coord_flip() +
+  ggplot2::scale_y_continuous(labels = scales::comma) +
+  ggplot2::labs(
+    title = "Top 10 Users by Average Steps",
+    x = "User (ID)",
+    y = "Average Steps"
+  )
+```
+
+
+
+## Recommendations
+
+-   Set weekday-specific goals to address variability.
+-   Provide sleep coaching nudges after unusually high/low activity days.
+-   Send weekly trend summaries to sustain engagement.

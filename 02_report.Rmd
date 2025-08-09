@@ -1,0 +1,72 @@
+---
+title: "Bellabeat Capstone Report"
+author: "Paola Velleda Betemps"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, fig.width = 7, fig.height = 5, dpi = 150)
+library(tidyverse); library(lubridate); library(janitor); library(here); library(skimr); library(scales)
+Sys.setlocale("LC_TIME","C")
+# Build plots p1..p6 used below
+source(here::here("03_analysis","01_explore.R"))
+```
+
+## Introduction
+This report presents an analysis of Fitbit daily activity and sleep data to provide insights for Bellabeat’s smart wellness products.
+
+## Data & KPIs
+```{r}
+clean_path <- file.path(here::here("02_clean"), "bellabeat_daily_clean.csv")
+daily <- readr::read_csv(clean_path) |> janitor::clean_names()
+daily <- daily |> mutate(dow = lubridate::wday(date, label=TRUE, abbr=TRUE, week_start=1),
+                         sleep_hours = total_minutes_asleep/60)
+
+kpi <- daily |>
+  summarise(users = dplyr::n_distinct(id),
+            rows  = dplyr::n(),
+            steps_median = median(total_steps, na.rm=TRUE),
+            steps_mean   = mean(total_steps, na.rm=TRUE),
+            sleep_median_h = median(sleep_hours, na.rm=TRUE),
+            sleep_mean_h   = mean(sleep_hours, na.rm=TRUE),
+            corr_steps_sleep = cor(total_steps, total_minutes_asleep, use="complete.obs"))
+kpi
+```
+
+## Visual Insights
+
+### 1) Distribution of Daily Steps
+```{r}
+p1
+```
+
+### 2) Sleep (hours) vs. Steps
+```{r}
+p2
+```
+
+### 3) Average Steps by Weekday
+```{r}
+p3
+```
+
+### 4) Average Sleep by Weekday
+```{r}
+p4
+```
+
+### 5) Median Steps by ISO Week
+```{r}
+p5
+```
+
+### 6) Top 10 Users by Average Steps
+```{r}
+p6
+```
+
+## Recommendations
+- Set weekday-specific goals to address variability.
+- Provide sleep coaching nudges after unusually high/low activity days.
+- Send weekly trend summaries to sustain engagement.
